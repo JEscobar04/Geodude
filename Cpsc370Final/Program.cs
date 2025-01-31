@@ -22,6 +22,8 @@ class Program
 
                 case "2":
                     Console.WriteLine("You chose Roulette!");
+                    Roulette rouletteGame = new Roulette(gambler);
+                    rouletteGame.StartGame();
                     break;
 
                 case "3":
@@ -49,11 +51,4 @@ class Program
 
     // this is just an example of how to get the command
     // line arguments so you can use them
-    private static void ShowArguments(string[] args)
-    {
-        for (int i = 0; i < args.Length; i++)
-        {
-            Console.WriteLine("  Argument " + i +": " + args[i]);
-        }
-    }
 }
