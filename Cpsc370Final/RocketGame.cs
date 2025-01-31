@@ -1,5 +1,3 @@
-using System;
-
 namespace Cpsc370Final
 {
     public class RocketGame
@@ -13,156 +11,138 @@ namespace Cpsc370Final
             _player = player;
         }
 
-        public RocketGame(Random rand)
+        public RocketGame(Player player, Random rand)
         {
             _random = rand;
+            _player = player;
         }
-        
-        // Tracking player's bet and guess
-        public double BetAmount { get; private set; }
 
-        public string? PlayerGuess { get; private set; } // "go" or "not go"
+        // Tracking player's bet
+        public double TemporaryBalance = 1000.0;
+        public double BetAmount { get; set; }
+
         public bool Outcome { get; set; }        // true = rocket safe, false = rocket fails
-
-        // TEMPORARY until we have a Player or Bank class
-        // later remove this and reference actual Player/Bank classes.
-        public double TemporaryBalance { get; private set; } = 1000.0; // example starting balance
 
         // Place a bet
         public void PlaceBet(double bet)
         {
-            // in the future, you'd call Bank/Player methods to check if bet is valid
+            if (!_player.HasMoney())
+            {
+                Console.WriteLine("You don't have enough balance to place that bet.");
+                throw new InvalidOperationException("Insufficient balance.");
+            }
             BetAmount = bet;
-
-            // deduct from temporary balance later remove once we have a Bank class
             _player.RemoveMoney(BetAmount);
         }
 
-        // lets the player submit guesses before the round starts.
-        public void InputGuesses(string guess)
-        {
-            guess = guess.ToLower();
-            if (guess != "go" && guess != "not go")
-                throw new ArgumentException("Invalid guess. Allowed values: 'go' or 'not go'.");
-            PlayerGuess = guess;
-        }
-
-        // randomly determines the outcome for the round with a 90% chance of survival
+        // Randomly determines the outcome for the round with a 90% chance of survival
         public void GenerateOutcome()
         {
             // 90% chance rocket is safe
             Outcome = (_random.NextDouble() < 0.90);
         }
 
-        // compares player guesses with the generated outcome
-        public bool CheckWin()
-        {
-            if (PlayerGuess == null)
-                throw new InvalidOperationException("Guess not provided yet!");
-
-            // If rocket is safe && guess is "go" => win
-            if (Outcome && PlayerGuess == "go") return true;
-            // If rocket fails && guess is "not go" => win
-            if (!Outcome && PlayerGuess == "not go") return true;
-            return false;
-        }
-
-        // shows whether the player won or lost + communicates with the Bank in the future
-        // returns how much the player won (0 if lost)
-        public double DisplayResult()
-        {
-            bool won = CheckWin();
-            if (won)
-            {
-                // payoff is 1.1x bet
-                double winnings = BetAmount * 1.1;
-                Console.WriteLine($"You won {winnings}!");
-
-                // in the future add to bank balance
-                // for now, add to temporary placeholder
-                _player.AddMoney(winnings, 1);
-
-                return winnings;
-            }
-            else
-            {
-                Console.WriteLine("You lost your bet!");
-                return 0.0;
-            }
-        }
-
-        // gives player an option to start a new round after results are displayed
+        // Resets game state for a new game
         public void RestartGame()
         {
             BetAmount = 0;
-            PlayerGuess = null;
             Outcome = false;
         }
 
-        /// PlayRocketGame: This method runs the "loop" logic, 
-        /// prompting the user for bet and guess until they exit or run out of money.
+        /// <summary>
+        /// PlayRocketGame: This method runs the "loop" logic, allowing the player to keep playing.
+        /// </summary>
         public void PlayRocketGame()
         {
-            bool keepPlaying = true;
             Console.WriteLine("Welcome to the Rocket Game!");
 
-            while (keepPlaying && _player.HasMoney())
+            while (_player.HasMoney())
             {
-                // Prompt for bet
+                // Prompt for initial bet
                 _player.ShowStatus();
                 Console.Write("Enter bet (or 0 to exit): ");
                 string? betText = Console.ReadLine();
-                if (!double.TryParse(betText, out double bet) || bet < 0)
+                if (!double.TryParse(betText, out double bet) || bet <= 0)
                 {
+                    if (bet == 0)
+                    {
+                        Console.WriteLine("Exiting Rocket Game...");
+                        break;
+                    }
                     Console.WriteLine("Invalid bet.");
                     continue;
                 }
-
-                if (bet == 0)
-                {
-                    Console.WriteLine("Exiting Rocket Game...");
-                    break;
-                }
-
-                PlaceBet(bet);
-
-                // Prompt for guess ("go" or "not go")
-                Console.Write("Guess 'go' or 'not go': ");
-                string? guessText = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(guessText))
-                {
-                    Console.WriteLine("Invalid guess.");
-                    continue;
-                }
-
                 try
                 {
-                    InputGuesses(guessText);
+                    PlaceBet(bet);
                 }
-                catch (ArgumentException ex)
+                catch (InvalidOperationException)
                 {
-                    Console.WriteLine(ex.Message);
                     continue;
                 }
 
-                // Generate rocket outcome, show result
-                GenerateOutcome();
-                // double roundWinnings = DisplayResult();
-                DisplayResult();
+                bool keepGoing = true;
 
-                // Check if we can keep playing
+                while (keepGoing)
+                {
+                    // Generate rocket outcome
+                    GenerateOutcome();
+
+                    if (Outcome) // Rocket is safe
+                    {
+                        // Multiply the current bet amount
+                        BetAmount = Math.Round(BetAmount * 1.1, 2);
+                        Console.WriteLine($"\nThe rocket was safe! Your bet is now: {BetAmount}");
+
+                        // Ask if the player wants to keep going
+                        Console.Write("Do you want to keep going? (go/not go): ");
+                        string? guessText = Console.ReadLine();
+                        if (string.IsNullOrWhiteSpace(guessText))
+                        {
+                            Console.WriteLine("Invalid input.");
+                            continue;
+                        }
+                        string guess = guessText.ToLower();
+                        if (guess == "go")
+                        {
+                            // Player chooses to continue
+                            continue;
+                        }
+                        else if (guess == "not go")
+                        {
+                            // Player chooses to cash out
+                            _player.AddMoney(BetAmount, 1);
+                            Console.WriteLine($"You cashed out with {BetAmount}!");
+                            break; // Exit the inner loop
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid choice. Please type 'go' or 'not go'.");
+                            continue;
+                        }
+                    }
+                    else // Rocket fails
+                    {
+                        Console.WriteLine("\nBoom! The rocket exploded. You lost your bet.");
+                        BetAmount = 0;
+                        break; // Exit the inner loop
+                    }
+                }
+
+                // Check if the player has funds to keep playing
                 if (!_player.HasMoney())
                 {
                     Console.WriteLine("No more funds! Game over!");
                     break;
                 }
 
-                // Ask to continue or exit
-                Console.Write("Play another round? (y/n): ");
-                string? response = Console.ReadLine();
-                if (response?.ToLower() == "n")
+                // Ask to continue or exit the game
+                Console.Write("Do you want to play again? (y/n): ");
+                string? playAgain = Console.ReadLine();
+                if (playAgain?.ToLower() == "n")
                 {
-                    keepPlaying = false;
+                    Console.WriteLine("Exiting Rocket Game...");
+                    break;
                 }
                 else
                 {
