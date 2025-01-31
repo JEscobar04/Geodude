@@ -112,6 +112,7 @@ namespace Cpsc370Final
                         {
                             // Player chooses to cash out
                             _player.AddMoney(BetAmount, 1);
+
                             Console.WriteLine($"You cashed out with {BetAmount}!");
                             break; // Exit the inner loop
                         }
